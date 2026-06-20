@@ -1,0 +1,35 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=2.0, alpha=None, reduction='mean'):
+        """
+        gamma: 難しいサンプルにどれだけ焦点を当てるかのパラメータ
+        alpha: クラス間の重み（クラス数と同じ長さの1Dテンソル、またはNone）
+        """
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        # inputs: モデルの出力 (Logits) [Batch_size, Num_classes]
+        # targets: 正解ラベル [Batch_size]
+
+        # 1. 通常のCross Entropy Loss計算（reduction='none'サンプルごとの損失取得）
+        ce_loss = F.cross_entropy(inputs, targets, weight=self.alpha, reduction='none')
+        
+        # 2. 正解クラスの予測確率 p_t を逆算
+        pt = torch.exp(-ce_loss)
+        
+        # 3. Focal Loss計算: (1 - p_t)^gamma * CE_loss
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+
+        # 4. バッチ全体の損失
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
